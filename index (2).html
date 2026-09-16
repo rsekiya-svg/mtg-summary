@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>議事録支援ツール</title>
+<style>
+  :root {
+    --paper: #f6f3ec;
+    --paper-dark: #ece7da;
+    --ink: #2b2620;
+    --ink-soft: #5c564a;
+    --line: #c9c0ab;
+    --accent: #6b5b3f;
+    --accent-deep: #4a3f2a;
+    --danger: #8c3b2e;
+    --danger-bg: #f4e4de;
+    --ok: #3f5b3f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #1c1a16;
+      --paper-dark: #262319;
+      --ink: #e9e3d4;
+      --ink-soft: #b3ab97;
+      --line: #4a4433;
+      --accent: #c9b98a;
+      --accent-deep: #e3d5a8;
+      --danger: #d98a78;
+      --danger-bg: #3a2620;
+      --ok: #9fc79f;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #1c1a16;
+    --paper-dark: #262319;
+    --ink: #e9e3d4;
+    --ink-soft: #b3ab97;
+    --line: #4a4433;
+    --accent: #c9b98a;
+    --accent-deep: #e3d5a8;
+    --danger: #d98a78;
+    --danger-bg: #3a2620;
+    --ok: #9fc79f;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
+    line-height: 1.75;
+    min-height: 100vh;
+    padding: 40px 20px 80px;
+  }
+
+  .wrap { max-width: 760px; margin: 0 auto; }
+
+  header {
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 24px;
+    margin-bottom: 32px;
+  }
+  header h1 {
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    margin: 0 0 6px;
+  }
+  header p {
+    color: var(--ink-soft);
+    font-size: 14px;
+    margin: 0;
+  }
+
+  section {
+    background: var(--paper-dark);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  section h2 {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    margin: 0 0 16px;
+    color: var(--ink-soft);
+    border-left: 3px solid var(--accent);
+    padding-left: 10px;
+  }
+
+  label {
+    display: block;
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+  }
+  input[type="password"], input[type="text"] {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 14px;
+  }
+  input:focus, button:focus, select:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+
+  .key-row { display: flex; gap: 8px; align-items: flex-end; }
+  .key-row > div:first-child { flex: 1; }
+  .key-row button { white-space: nowrap; }
+
+  .key-note {
+    font-size: 12px;
+    color: var(--danger);
+    margin-top: 8px;
+    line-height: 1.6;
+  }
+
+  .rec-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  button {
+    font-family: inherit;
+    font-size: 14px;
+    padding: 10px 20px;
+    border-radius: 2px;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: var(--paper);
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+  }
+  button:hover { opacity: 0.85; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.secondary {
+    background: transparent;
+    color: var(--accent-deep);
+  }
+  button.danger {
+    background: var(--danger);
+    border-color: var(--danger);
+  }
+
+  .rec-status {
+    font-size: 14px;
+    color: var(--ink-soft);
+  }
+  .rec-status.active {
+    color: var(--danger);
+  }
+  .rec-status.active::before {
+    content: "●";
+    margin-right: 6px;
+    animation: pulse 1.4s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.25; }
+  }
+
+  .timer {
+    font-variant-numeric: tabular-nums;
+    font-size: 20px;
+    color: var(--ink);
+  }
+
+  audio { width: 100%; margin-top: 16px; }
+
+  .upload-alt {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--line);
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+  .upload-alt input { margin-top: 8px; }
+
+  .progress {
+    display: none;
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-top: 12px;
+  }
+  .progress.show { display: block; }
+
+  .result-block { margin-bottom: 24px; }
+  .result-block:last-child { margin-bottom: 0; }
+  .result-block h3 {
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    color: var(--ink-soft);
+    margin: 0 0 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .copy-btn {
+    font-size: 12px;
+    padding: 4px 10px;
+    background: transparent;
+    color: var(--ink-soft);
+    border-color: var(--line);
+  }
+  .result-text {
+    white-space: pre-wrap;
+    font-size: 14.5px;
+    line-height: 1.9;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    padding: 16px;
+    max-height: 340px;
+    overflow-y: auto;
+  }
+
+  .error-box {
+    background: var(--danger-bg);
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    padding: 14px 16px;
+    border-radius: 2px;
+    font-size: 13px;
+    margin-top: 12px;
+    display: none;
+    line-height: 1.7;
+  }
+  .error-box.show { display: block; }
+
+  .history-item {
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    background: var(--paper);
+  }
+  .history-item:hover { border-color: var(--accent); }
+  .history-item .h-date {
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+  .history-item .h-title {
+    font-size: 14px;
+    margin-top: 4px;
+  }
+  .history-empty {
+    color: var(--ink-soft);
+    font-size: 13px;
+  }
+
+  .footnote {
+    font-size: 12px;
+    color: var(--ink-soft);
+    text-align: center;
+    margin-top: 40px;
+    line-height: 1.8;
+  }
+
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 10;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal-box {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    max-width: 640px;
+    width: 100%;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 24px;
+    border-radius: 2px;
+  }
+  .modal-box .close-row {
+    text-align: right;
+    margin-top: 16px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>議事録支援ツール</h1>
+    <p>録音 → 文字起こし → 要約（Gemini APIを使用・データはブラウザ内のみ保存）</p>
+  </header>
+
+  <section id="apiSection">
+    <h2>接続先設定</h2>
+    <div class="key-row">
+      <div>
+        <label for="proxyUrlInput">社内プロキシURL（GAS Web App URL）</label>
+        <input type="text" id="proxyUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
+      </div>
+      <button id="saveKeyBtn" class="secondary">保存</button>
+    </div>
+    <div style="margin-top:14px;">
+      <label for="requesterInput">お名前（利用ログ用・任意）</label>
+      <input type="text" id="requesterInput" placeholder="例：関屋">
+    </div>
+    <p class="key-note">
+      URLは初回のみ入力してください（この端末のブラウザ内に保存されます）。社内の管理者からURLを共有してもらってください。
+      GeminiのAPIキー自体はGAS側で管理されており、このツールを使う人が直接キーに触れることはありません。
+    </p>
+  </section>
+
+  <section>
+    <h2>録音</h2>
+    <div class="rec-controls">
+      <button id="startBtn">録音開始</button>
+      <button id="stopBtn" class="danger" disabled>停止</button>
+      <span class="timer" id="timer">00:00</span>
+      <span class="rec-status" id="recStatus">待機中</span>
+    </div>
+    <audio id="audioPlayback" controls style="display:none;"></audio>
+
+    <div class="upload-alt">
+      録音済みファイルを使う場合はこちら（音声ファイルのみ対応）
+      <input type="file" id="fileInput" accept="audio/*">
+    </div>
+  </section>
+
+  <section>
+    <h2>処理</h2>
+    <div class="rec-controls">
+      <label for="modelSelect" style="margin:0;">モデル：</label>
+      <select id="modelSelect" style="padding:8px 10px; border-radius:2px; border:1px solid var(--line); background:var(--paper); color:var(--ink); font-family:inherit;">
+        <option value="gemini-2.5-flash">gemini-2.5-flash（速い・低コスト）</option>
+        <option value="gemini-2.5-pro">gemini-2.5-pro（精度重視）</option>
+      </select>
+      <button id="processBtn" disabled>文字起こし＋要約を実行</button>
+    </div>
+    <div class="progress" id="progressText"></div>
+    <div class="error-box" id="errorBox"></div>
+  </section>
+
+  <section id="resultSection" style="display:none;">
+    <h2>結果</h2>
+    <div class="result-block">
+      <h3>要約 <button class="copy-btn" data-copy="summaryText">コピー</button></h3>
+      <div class="result-text" id="summaryText"></div>
+    </div>
+    <div class="result-block">
+      <h3>文字起こし全文 <button class="copy-btn" data-copy="transcriptText">コピー</button></h3>
+      <div class="result-text" id="transcriptText"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>履歴（この端末のみ）</h2>
+    <div id="historyList"><p class="history-empty">まだ履歴はありません。</p></div>
+  </section>
+
+  <p class="footnote">
+    音声データは社内プロキシ経由でGoogle Gemini APIに送信され処理されます。個人情報・故人情報を含む可能性がある内容を扱う場合は、
+    事前に取り扱い方針を社内で確認してください。文字起こし・要約の履歴はこの端末のブラウザ内にのみ保存され、他の端末とは共有されません。
+  </p>
+</div>
+
+<div class="modal-overlay" id="historyModal">
+  <div class="modal-box">
+    <div class="result-block">
+      <h3>要約</h3>
+      <div class="result-text" id="modalSummary"></div>
+    </div>
+    <div class="result-block">
+      <h3>文字起こし全文</h3>
+      <div class="result-text" id="modalTranscript"></div>
+    </div>
+    <div class="close-row">
+      <button class="secondary" id="closeModalBtn">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const $ = (id) => document.getElementById(id);
+
+  // ---- Proxy URL / requester handling ----
+  const proxyUrlInput = $('proxyUrlInput');
+  const requesterInput = $('requesterInput');
+  const saveKeyBtn = $('saveKeyBtn');
+  try {
+    const savedUrl = localStorage.getItem('proxy_url');
+    if (savedUrl) proxyUrlInput.value = savedUrl;
+    const savedName = localStorage.getItem('requester_name');
+    if (savedName) requesterInput.value = savedName;
+  } catch (e) {}
+
+  saveKeyBtn.addEventListener('click', () => {
+    try {
+      localStorage.setItem('proxy_url', proxyUrlInput.value.trim());
+      localStorage.setItem('requester_name', requesterInput.value.trim());
+      saveKeyBtn.textContent = '保存済み';
+      setTimeout(() => saveKeyBtn.textContent = '保存', 1500);
+    } catch (e) {
+      showError('設定の保存に失敗しました（ブラウザのストレージ設定を確認してください）。');
+    }
+  });
+
+  function getProxyUrl() {
+    return proxyUrlInput.value.trim();
+  }
+  function getRequesterName() {
+    return requesterInput.value.trim() || '未入力';
+  }
+
+  // ---- Recording ----
+  let mediaRecorder, audioChunks = [], recordedBlob = null;
+  let timerInterval, seconds = 0;
+
+  const startBtn = $('startBtn');
+  const stopBtn = $('stopBtn');
+  const timerEl = $('timer');
+  const recStatus = $('recStatus');
+  const audioPlayback = $('audioPlayback');
+  const processBtn = $('processBtn');
+  const fileInput = $('fileInput');
+
+  function formatTime(s) {
+    const m = Math.floor(s / 60).toString().padStart(2, '0');
+    const sec = (s % 60).toString().padStart(2, '0');
+    return `${m}:${sec}`;
+  }
+
+  startBtn.addEventListener('click', async () => {
+    hideError();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunks = [];
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+      mediaRecorder.onstop = () => {
+        recordedBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+        const url = URL.createObjectURL(recordedBlob);
+        audioPlayback.src = url;
+        audioPlayback.style.display = 'block';
+        processBtn.disabled = false;
+        stream.getTracks().forEach(t => t.stop());
+      };
+      mediaRecorder.start();
+      seconds = 0;
+      timerEl.textContent = formatTime(seconds);
+      timerInterval = setInterval(() => {
+        seconds++;
+        timerEl.textContent = formatTime(seconds);
+      }, 1000);
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+      recStatus.textContent = '録音中';
+      recStatus.classList.add('active');
+    } catch (err) {
+      showError('マイクへのアクセスが許可されませんでした。ブラウザの設定を確認してください。');
+    }
+  });
+
+  stopBtn.addEventListener('click', () => {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+    }
+    clearInterval(timerInterval);
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    recStatus.textContent = '録音完了';
+    recStatus.classList.remove('active');
+  });
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files && fileInput.files[0]) {
+      recordedBlob = fileInput.files[0];
+      const url = URL.createObjectURL(recordedBlob);
+      audioPlayback.src = url;
+      audioPlayback.style.display = 'block';
+      processBtn.disabled = false;
+      hideError();
+    }
+  });
+
+  // ---- Error/progress helpers ----
+  function showError(msg) {
+    const box = $('errorBox');
+    box.textContent = msg;
+    box.classList.add('show');
+  }
+  function hideError() {
+    $('errorBox').classList.remove('show');
+  }
+  function showProgress(msg) {
+    const p = $('progressText');
+    p.textContent = msg;
+    p.classList.add('show');
+  }
+  function hideProgress() {
+    $('progressText').classList.remove('show');
+  }
+
+  // ---- Blob -> base64 ----
+  function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  // ---- Call via GAS proxy (fetch, APIキーはサーバー側で管理) ----
+  async function callGemini(base64Audio, mimeType, proxyUrl, model) {
+    const response = await fetch(proxyUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        audio: base64Audio,
+        mimeType: mimeType,
+        model: model,
+        requester: getRequesterName()
+      })
+    });
+
+    if (!response.ok) {
+      let detail = '';
+      try {
+        const parsed = await response.json();
+        detail = parsed.error || '';
+      } catch (e) {}
+      throw new Error(detail || `プロキシ経由のリクエストに失敗しました（${response.status}）。`);
+    }
+
+    const data = await response.json();
+    if (data.error) {
+      throw new Error(data.error);
+    }
+    return data;
+  }
+
+  // ---- Process button ----
+  processBtn.addEventListener('click', async () => {
+    hideError();
+    const proxyUrl = getProxyUrl();
+    if (!proxyUrl) {
+      showError('先に社内プロキシURLを入力・保存してください。管理者に確認してください。');
+      return;
+    }
+    if (!recordedBlob) {
+      showError('録音データがありません。');
+      return;
+    }
+
+    const model = $('modelSelect').value;
+    processBtn.disabled = true;
+    showProgress('音声を読み込んでいます...');
+
+    try {
+      const base64Audio = await blobToBase64(recordedBlob);
+      const mimeType = recordedBlob.type || 'audio/webm';
+
+      showProgress('文字起こし・要約を実行中...（音声の長さにより数十秒〜数分かかります）');
+
+      const result = await callGemini(base64Audio, mimeType, proxyUrl, model);
+
+      $('summaryText').textContent = result.summary || '(要約なし)';
+      $('transcriptText').textContent = result.transcript || '(文字起こしなし)';
+      $('resultSection').style.display = 'block';
+      $('resultSection').scrollIntoView({ behavior: 'smooth' });
+
+      saveToHistory(result);
+      hideProgress();
+    } catch (err) {
+      hideProgress();
+      showError(err.message || '処理中にエラーが発生しました。');
+    } finally {
+      processBtn.disabled = false;
+    }
+  });
+
+  // ---- Copy buttons ----
+  document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('copy-btn')) {
+      const targetId = e.target.getAttribute('data-copy');
+      const text = document.getElementById(targetId).textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        const original = e.target.textContent;
+        e.target.textContent = 'コピーしました';
+        setTimeout(() => e.target.textContent = original, 1200);
+      }).catch(() => {
+        showError('クリップボードへのコピーに失敗しました。');
+      });
+    }
+  });
+
+  // ---- History (localStorage) ----
+  const HISTORY_KEY = 'meeting_history_v1';
+
+  function loadHistory() {
+    try {
+      const raw = localStorage.getItem(HISTORY_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveToHistory(result) {
+    try {
+      const history = loadHistory();
+      history.unshift({
+        date: new Date().toISOString(),
+        summary: result.summary || '',
+        transcript: result.transcript || ''
+      });
+      // 直近20件まで保持
+      const trimmed = history.slice(0, 20);
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(trimmed));
+      renderHistory();
+    } catch (e) {
+      showError('履歴の保存に失敗しました（ストレージ容量の可能性があります）。結果自体は上に表示されています。');
+    }
+  }
+
+  function renderHistory() {
+    const list = $('historyList');
+    const history = loadHistory();
+    if (history.length === 0) {
+      list.innerHTML = '<p class="history-empty">まだ履歴はありません。</p>';
+      return;
+    }
+    list.innerHTML = '';
+    history.forEach((item, idx) => {
+      const div = document.createElement('div');
+      div.className = 'history-item';
+      const d = new Date(item.date);
+      const dateStr = `${d.getFullYear()}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+      const preview = (item.summary || '').slice(0, 40).replace(/\n/g, ' ');
+      div.innerHTML = `<div class="h-date">${dateStr}</div><div class="h-title">${preview || '(要約なし)'}...</div>`;
+      div.addEventListener('click', () => openHistoryModal(item));
+      list.appendChild(div);
+    });
+  }
+
+  function openHistoryModal(item) {
+    $('modalSummary').textContent = item.summary || '';
+    $('modalTranscript').textContent = item.transcript || '';
+    $('historyModal').classList.add('show');
+  }
+  $('closeModalBtn').addEventListener('click', () => {
+    $('historyModal').classList.remove('show');
+  });
+  $('historyModal').addEventListener('click', (e) => {
+    if (e.target.id === 'historyModal') $('historyModal').classList.remove('show');
+  });
+
+  renderHistory();
+})();
+</script>
+</body>
+</html>
